@@ -35,7 +35,7 @@ function NarrowItDownController (MenuSearchService, $scope) {
 
  narrowItDown.searchItem = "";
  narrowItDown.items = [];
- narrowItDown.title = "hello";
+ narrowItDown.title = "Menu Items";
 
  narrowItDown.getMenuItems = function (searchItem) {
      narrowItDown.items = MenuSearchService.getMatchedMenuItems(searchItem);
