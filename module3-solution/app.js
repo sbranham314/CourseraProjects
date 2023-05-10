@@ -1,101 +1,113 @@
 (function() {
 'use strict';
 
-angular.module('ShoppingListCheckOff', [])
-.controller('ToBuyController', ToBuyController)
-.controller('AlreadyBoughtController', AlreadyBoughtController)
-.controller('ToBuyShowController', ToBuyShowController)
-.controller('AlreadyBoughtShowController', AlreadyBoughtShowController)
-.service('ShoppingListCheckOffService', ShoppingListCheckOffService);
+angular.module('NarrowItDownApp', [])
+.controller('NarrowItDownController', NarrowItDownController)
+.directive('foundItems', FoundItemsDirective)
+.service('MenuSearchService', MenuSearchService)
+.constant('ApiBasePath', "https://coursera-jhu-default-rtdb.firebaseio.com/menu_items.json");
 
-ToBuyController.$inject = ['ShoppingListCheckOffService'];
-function ToBuyController (ShoppingListCheckOffService) {
- var toBuyAdder = this;
+function FoundItemsDirective() {
+   var ddo = {
+    templateUrl: 'loader/itemsloaderindicator.template.html',
+    scope: {
+      items: '<',
+      title: '@',
+      onRemove: '&',
+      showError: '&'
+    },
+    controller: NarrowItDownDirectiveController,
+    controllerAs: 'list',
+    bindToController: true
+  };
 
- toBuyAdder.itemName = "";
- toBuyAdder.itemQuantity = "";
+  return ddo;
+}
 
- toBuyAdder.addItem = function () {
-   ShoppingListCheckOffService.addItemToBuy(toBuyAdder.itemName, toBuyAdder.itemQuantity);
+function NarrowItDownDirectiveController(){
+  var list = this;
+
+}
+
+NarrowItDownController.$inject = ['MenuSearchService', '$scope'];
+function NarrowItDownController (MenuSearchService, $scope) {
+ var narrowItDown = this;
+
+ narrowItDown.searchItem = "";
+ narrowItDown.items = [];
+ narrowItDown.title = "hello";
+
+ narrowItDown.getMenuItems = function (searchItem) {
+     narrowItDown.items = MenuSearchService.getMatchedMenuItems(searchItem);
  }
+
+ narrowItDown.removeItem = function (itemIndex) {
+   MenuSearchService.removeItem(itemIndex);
+ }
+
+ narrowItDown.displayError = function () {
+   return MenuSearchService.showError();
+ }
+
 }
 
-AlreadyBoughtController.$inject = ['ShoppingListCheckOffService'];
-function AlreadyBoughtController (ShoppingListCheckOffService) {
-  var alreadyBoughtAdder = this;
-
-  alreadyBoughtAdder.itemName = "";
-  alreadyBoughtAdder.itemQuantity = "";
-
-  alreadyBoughtAdder.addItem = function () {
-    ShoppingListCheckOffService.addItemAlreadyBought(alreadyBoughtAdder.itemName, alreadyBoughtAdder.itemQuantity);
-  }
-}
-
-
-ToBuyShowController.$inject = ['ShoppingListCheckOffService'];
-function ToBuyShowController (ShoppingListCheckOffService) {
-   var showList = this;
-
-   showList.items  = ShoppingListCheckOffService.getToBuyItems();
-
-   showList.removeItem = function (itemIndex) {
-     ShoppingListCheckOffService.removeToBuyItem(itemIndex);
-   };
-}
-
-AlreadyBoughtShowController.$inject = ['ShoppingListCheckOffService'];
-function AlreadyBoughtShowController (ShoppingListCheckOffService) {
-    var showList = this;
-
-    showList.items  = ShoppingListCheckOffService.getAlreadyBoughtItems();
-}
-
-function ShoppingListCheckOffService() {
+MenuSearchService.$inject = ['$http', 'ApiBasePath'];
+function MenuSearchService($http, ApiBasePath) {
   var service = this;
 
-  var toBuyItems = [{ name: "cookies", quantity: 10 },
-                    { name: "drinks", quantity: 20 },
-                    { name: "pizza", quantity: 4 },
-                    { name: "ice cream", quantity: 8 },
-                    { name: "cup cakes", quantity: 30 }
-                   ];
-  var alreadyBoughtItems = [];
+  var items = [];
+  var showError = false;
 
-  service.addItemToBuy = function (itemName, quantity) {
-    var item = {
-      name: itemName,
-      quantity: quantity
-    };
-    toBuyItems.push(item);
+  service.getMatchedMenuItems = function (searchTerm) {
+    items = [];
+
+    if(searchTerm == ""){
+      showError = true;
+    }else{
+      var response = $http({
+        method: "GET",
+        url: ApiBasePath
+      }).then(function (response) {
+        for (var category in response.data) {
+          for(var menuItem in response.data[category]["menu_items"]){
+              if(response.data[category]["menu_items"][menuItem]["description"].includes(searchTerm)){
+                items.push({name: response.data[category]["menu_items"][menuItem]["name"],
+                            short_name: response.data[category]["menu_items"][menuItem]["short_name"],
+                            description: response.data[category]["menu_items"][menuItem]["description"]});
+              }
+          }
+        }
+
+        if(items == undefined || items.length == 0){
+          showError = true;
+        }else{
+          showError = false;
+        }
+      })
+      .catch(function (error) {
+        console.log("something went wrong!");
+      });
+    }
+
+
+    return items;
   };
 
-  service.addItemAlreadyBought = function (itemName, quantity) {
-    var item = {
-      name: itemName,
-      quantity: quantity
-    };
-    alreadyBoughtItems.push(item);
+  service.removeItem = function (itemIndex) {
+    items.splice(itemIndex, 1);
+
+    if(items.length == 0){
+      showError = true;
+    }
   };
 
-  service.removeToBuyItem = function (itemIndex) {
-    var boughtItem = toBuyItems[itemIndex];
-    toBuyItems.splice(itemIndex, 1);
+  service.getItems = function () {
+    return items;
+  };
 
-    alreadyBoughtItems.push(boughtItem);
+  service.showError = function () {
+    return showError;
   }
-
-  // service.removeAlreadyBoughtItem = function (itemIndex) {
-  //
-  // }
-
-  service.getToBuyItems = function () {
-    return toBuyItems;
-  };
-
-  service.getAlreadyBoughtItems = function () {
-    return alreadyBoughtItems;
-  };
 }
 
 })();
